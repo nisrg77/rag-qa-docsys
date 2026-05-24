@@ -424,10 +424,20 @@ app.post("/api/documents/upload", async (req, res) => {
         const dataBuffer = Buffer.from(content, "base64");
         // Dynamically import pdf-parse to avoid esbuild commonjs static resolution bugs
         const pdfModule = await import("pdf-parse");
-        const parseFunc = (pdfModule as any).default || pdfModule;
-        const parsed = await parseFunc(dataBuffer);
-        text = parsed.text;
-        addTrace("loader", "PDF Successfully Parsed", `Extracted ${parsed.numpages} page(s) containing ${text.length} characters from '${name}'.`);
+        
+        let numPages = 0;
+        if (pdfModule.PDFParse) {
+          const parser = new pdfModule.PDFParse(dataBuffer);
+          const parsed = await parser.getText();
+          text = parsed.text;
+          numPages = parsed.total;
+        } else {
+          const parseFunc = (pdfModule as any).default || pdfModule;
+          const parsed = await parseFunc(dataBuffer);
+          text = parsed.text;
+          numPages = parsed.numpages;
+        }
+        addTrace("loader", "PDF Successfully Parsed", `Extracted ${numPages} page(s) containing ${text.length} characters from '${name}'.`);
       } catch (pdfErr: any) {
         addTrace("loader", "PDF Parser Failed", `Failed to parse PDF binary matching '${name}': ${pdfErr.message}`);
         return res.status(500).json({ error: `PDF Parse Failure: ${pdfErr.message}` });
