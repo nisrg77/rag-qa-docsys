@@ -2,8 +2,6 @@ import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
-// @ts-ignore
-import pdf from "pdf-parse";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -95,72 +93,10 @@ function addTrace(
 
 // ---------------------------------------------------------
 // Helper: PRE-LOADED INSTRUCTIONAL SAMPLE DOCUMENTS FOR RAG
+// (Removed to prevent default documents from appearing)
 // ---------------------------------------------------------
-const SAMPLES = [
-  {
-    id: "sample_rag_primer",
-    name: "RAG_Architecture_Primer.txt",
-    type: "sample" as const,
-    text: `RETRIVAL-AUGMENTED GENERATION (RAG) ARCHITECTURE PRIMER
-=======================================================
-
-Retrieval-Augmented Generation (RAG) is an architectural pattern that optimizes the output of a Large Language Model (LLM) by interfacing it with an authoritative external knowledge source prior to generating a response. Standard LLMs are frozen in time, meaning their parametric memory captures knowledge only up to their training cutoff point. RAG solves this limitation by searching external indexed databases, pulling relevant snippets (chunks) related to a query, and prepending these snippets to the LLM's context window.
-
-Core Stages in an End-to-End RAG Pipeline:
-1. Document Ingestion & Loading: Loading raw files like PDFs, Markdowns, spreadsheets, or database tables, and extracting raw text strings.
-2. Intelligent Chunking: Splitting long prose into smaller paragraphs or windows. Since documents are often too long for an LLM's context or contain irrelevant padding, chunking breaks the text down to isolated topics. Standard parameters are Chunk Size (e.g., 500 characters) and Chunk Overlap (e.g., 100 characters) to ensure sentence boundaries and continuous contexts are not cropped off mid-phrase.
-3. Dense Vector Embeddings: Sending text chunks to an embedding model (such as Google’s gemini-embedding-2-preview) which projects characters into a high-dimensional vector space (e.g., 768 or 1536 real numbers). These vectors capture semantic meaning rather than word spelling.
-4. Vector Storage & Indexing (FAISS): Saving vectors in an indexing system. Facebook AI Similarity Search (FAISS) is an industry-standard library that permits highly optimized nearest-neighbor searches using distance metrics such as L2 (Euclidean distance) or Cosine Similarity (angle projection).
-5. Semantic Query & Retrieval: When a user asks a question, the query is embedded into the same vector space. FAISS searches the index and retrieves the top 'K' chunks that have the highest cosine similarity score to the query vector.
-6. Contextual Prompt Augmentation: Injecting the retrieved context chunks directly into a prompt template alongside the user's original question.
-7. LLM Response Generation: The augmented prompt is resolved by the LLM (e.g., Gemini 3.5 Flash or OpenAI GPT). Prompt engineering instructions instruct the LLM: "Answer the prompt based ONLY on the provided context. If the answer cannot be found, reply 'I do not have access to that information based on the document' and do not hallucinate." This mitigates AI halucinations.
-
-Pros of RAG:
-- Low-latency, low-cost adaptation of models to custom private files.
-- Transparent sources of information (citations and visual scores).
-- No expensive fine-tuning or continuous model re-training is required.
-- Easy update of knowledge bases—simply replace index files in the vector store.`,
-    size: 2790,
-  },
-  {
-    id: "sample_ai_studio_guide",
-    name: "AI_Studio_Advanced_Prompting.txt",
-    type: "sample" as const,
-    text: `GOOGLE AI STUDIO ADVANCED PROMPTING & HALLUCINATION CONTROLS
-===========================================================
-
-Google AI Studio provides access to cutting-edge models like Gemini 3.5 Flash, which feature enormous context windows and native multimodal capabilities. When designing enterprise Q&A assistants, prompt engineering is vital to direct model behavior, enforce boundaries, and reduce hallucinations.
-
-Mitigating Hallucinations in LLMs:
-- Grounding Prompts: A grounding prompt is a set of rules prefixed to the context. It states:
-  "You are a strict, factual information retriever. Analyze the provided Context chunks underneath. Draft a precise response answering the user's question. Follow these rules carefully:
-   1. You must only explain facts that are directly mentioned in the Context.
-   2. Do not assume or extrapolate based on general world knowledge.
-   3. If a question cannot be resolved using the Context, explicitly output 'The provided documents do not contain sufficient context to answer this query.'
-   4. Include visual citations citing which document or chunk index was used."
-- Temperature Control: Setting the temperature of the model dynamically. A temperature of 0.0 forces the model to choose highly deterministic tokens, resulting in factual, consistent, and predictable responses. A high temperature (e.g., 1.0) encourages creativity, which is ideal for marketing prose but highly dangerous for technical documentation Q&As.
-- System Instructions: Writing rules in the native system prompt segment. In \`@google/genai\`, you can set the \`systemInstruction\` directly inside the configuration object. This forces the model to adopt a persona (e.g., "Medical Assistant", "Corporate Policy Auditor") and respect restrictions across all subsequent chat turns.
-- Grounding Metadata: When utilizing Google Search or Google Maps grounding, Gemini provides native grounding metadata, returning a list of search chunks and corresponding Web URIs. Users should display these clickable citations underneath the chatbot response to guarantee user verification.`,
-    size: 2150,
-  },
-];
-
-// Initialize sample documents
 function loadSamples() {
-  SAMPLES.forEach((sample) => {
-    if (!documents.some((d) => d.id === sample.id)) {
-      documents.push({
-        id: sample.id,
-        name: sample.name,
-        type: sample.type,
-        size: sample.size,
-        text: sample.text,
-        chunkCount: 0,
-        uploadedAt: new Date("2026-05-24T05:00:00Z"),
-        status: "pending",
-      });
-    }
-  });
+  // Empty array prevents samples from being loaded
 }
 loadSamples();
 
@@ -486,8 +422,9 @@ app.post("/api/documents/upload", async (req, res) => {
     if (type === "pdf") {
       try {
         const dataBuffer = Buffer.from(content, "base64");
-        // Handle esbuild CommonJS bundling issue where default export gets nested
-        const parseFunc = typeof pdf === "function" ? pdf : (pdf as any).default;
+        // Dynamically import pdf-parse to avoid esbuild commonjs static resolution bugs
+        const pdfModule = await import("pdf-parse");
+        const parseFunc = (pdfModule as any).default || pdfModule;
         const parsed = await parseFunc(dataBuffer);
         text = parsed.text;
         addTrace("loader", "PDF Successfully Parsed", `Extracted ${parsed.numpages} page(s) containing ${text.length} characters from '${name}'.`);
