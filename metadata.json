@@ -1,0 +1,6 @@
+{
+  "name": "RAG Document Q&A System",
+  "description": "An end-to-end RAG pipeline visualizing chunking, semantic similarity vector search, prompt engineering, and context-aware Q&A over custom uploaded PDFs and documents.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
