@@ -486,7 +486,9 @@ app.post("/api/documents/upload", async (req, res) => {
     if (type === "pdf") {
       try {
         const dataBuffer = Buffer.from(content, "base64");
-        const parsed = await pdf(dataBuffer);
+        // Handle esbuild CommonJS bundling issue where default export gets nested
+        const parseFunc = typeof pdf === "function" ? pdf : (pdf as any).default;
+        const parsed = await parseFunc(dataBuffer);
         text = parsed.text;
         addTrace("loader", "PDF Successfully Parsed", `Extracted ${parsed.numpages} page(s) containing ${text.length} characters from '${name}'.`);
       } catch (pdfErr: any) {
