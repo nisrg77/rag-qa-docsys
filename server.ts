@@ -427,7 +427,7 @@ app.post("/api/documents/upload", async (req, res) => {
         
         let numPages = 0;
         if (pdfModule.PDFParse) {
-          const parser = new pdfModule.PDFParse(dataBuffer);
+          const parser = new pdfModule.PDFParse(new Uint8Array(dataBuffer));
           const parsed = await parser.getText();
           text = parsed.text;
           numPages = parsed.total;
